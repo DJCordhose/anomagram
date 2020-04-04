@@ -345,46 +345,36 @@ class Train extends Component {
         });
 
     }
-    trainModel() {
-        // for (let i = 0; i < this.numSteps; i++) {
 
+    // will be called recursively as long as we are in training mode
+    async trainModel() {
         this.currentSteps++;
-        //update progresssbar
-        // let progress = Math.floor((this.currentSteps / this.state.numSteps) * 100) + "%"
-        // this.refs["glowbar"].style.width = progress;
-
-
-
         this.CumulativeSteps++;
         this.setState({ CumulativeSteps: this.CumulativeSteps });
-        // 
+
         let startTime = new Date();
-        this.createdModel.fit(this.xsTrain,
+        // we train for just one epoch
+        const res = await this.createdModel.fit(this.xsTrain,
             this.xsTrain, { epochs: this.state.numEpochs, verbose: 0, batchSize: this.state.batchSize, validationData: [this.xsTest, this.xsTest] }
-        ).then(res => {
-            let endTime = new Date();
-            let elapsedTime = (endTime - startTime) / 1000
-            // console.log(elapsedTime);
+        );
+        let endTime = new Date();
+        let elapsedTime = (endTime - startTime) / 1000
 
-            let metricRow = { epoch: this.CumulativeSteps, loss: res.history.loss[0], val_loss: res.history.val_loss[0], traintime: elapsedTime }
-            this.trainMetricHolder.push(metricRow)
-            // this.setState({ trainMetrics: this.trainMetricHolder });
-            // console.log("Step loss", this.currentSteps, this.CumulativeSteps, res.history.loss[0], elapsedTime);
-           
+        // update metrics
+        let metricRow = { epoch: this.CumulativeSteps, loss: res.history.loss[0], val_loss: res.history.val_loss[0], traintime: elapsedTime }
+        this.trainMetricHolder.push(metricRow)
 
-            // console.log(this.state.numSteps);
-
-            if (this.state.numSteps > this.currentSteps && this.state.isTraining && !this.trainUnmounted  && (!this.state.modelStale)) {
-                this.getPredictions();
-                this.setState({ currentEpoch: this.currentSteps })
-                this.trainModel()
-            } else {
-                 
-                
-                this.currentSteps = 0
-                this.setState({ isTraining: false })
-            }
-        });
+        // continue training if we did not pause and there are still steps left
+        if (this.state.numSteps > this.currentSteps && this.state.isTraining && !this.trainUnmounted  && (!this.state.modelStale)) {
+            // get and display predictions
+            this.getPredictions();
+            this.setState({ currentEpoch: this.currentSteps })
+            // recurse
+            this.trainModel()
+        } else {
+            this.currentSteps = 0
+            this.setState({ isTraining: false })
+        }
     }
 
     async loadSavedModel() {
